@@ -17,3 +17,4 @@ A modern news portal built with React & Vite.
 ## Deployed Link
 👉 [https://curionxt.vercel.app](https://curionxt.vercel.app)
 "# curionxt" 
+<!-- Last updated: Aug 29, 2025 -->
