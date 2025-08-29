@@ -8,18 +8,28 @@ export default function Home() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch posts from backend (shared with all users)
-    fetch('/api/posts')
-      .then(res => res.json())
+    // Fetch shared data from backend
+    fetch('/api/data')
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
-        // Map database fields to match PostCard props
-        const formattedPosts = data.map(post => ({
-          title: post.title,
-          description: post.description,
-          img: post.imageUrl,
-          link: post.link
-        }));
-        setPosts(formattedPosts);
+        console.log("Fetched data:", data);
+        // Ensure data.posts is an array before mapping
+        if (Array.isArray(data.posts)) {
+          const formattedPosts = data.posts.map(post => ({
+            title: post.title,
+            description: post.description,
+            img: post.imageUrl,
+            link: post.link
+          }));
+          setPosts(formattedPosts);
+        } else {
+          setPosts([]);
+        }
       })
       .catch(err => {
         console.error("Failed to load shared posts:", err);
