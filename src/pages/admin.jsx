@@ -41,67 +41,85 @@ export default function Admin() {
   const ADMIN_USER = "admin";
   const ADMIN_PASS = "1234";
 
-  // Load saved data on mount
+  // Load saved data from backend (shared for all users)
   useEffect(() => {
-    const savedPosts = JSON.parse(localStorage.getItem("adminPosts")) || [];
-    const savedLinks = JSON.parse(localStorage.getItem("socialLinks")) || {
-      telegram: "",
-      whatsapp: "",
-      twitter: "",
-    };
-    const savedDematLinks = JSON.parse(localStorage.getItem("dematLinks")) || {
-      zerodha: "",
-      upstox: "",
-      angelone: "",
-      groww: "",
-    };
-    const savedStocks =
-      JSON.parse(localStorage.getItem("stockMarketData")) || {
-        trending: [],
-        gainers: [],
-        losers: [],
-        news: [],
-      };
-
-    setPosts(savedPosts);
-    setSocial(savedLinks);
-    setDematLinks(savedDematLinks);
-    setStockData(savedStocks);
+    fetch('/api/data')
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          setPosts(data.posts || []);
+          setSocial(data.social || { telegram: "", whatsapp: "", twitter: "" });
+          setDematLinks(data.dematLinks || { zerodha: "", upstox: "", angelone: "", groww: "" });
+          setStockData(data.stockData || { trending: [], gainers: [], losers: [], news: [] });
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load shared data:", err);
+        // Fallback to empty
+        setPosts([]);
+        setSocial({ telegram: "", whatsapp: "", twitter: "" });
+        setDematLinks({ zerodha: "", upstox: "", angelone: "", groww: "" });
+        setStockData({ trending: [], gainers: [], losers: [], news: [] });
+      });
   }, []);
 
-  // Save posts to localStorage
-  const savePosts = (updatedPosts) => {
-    setPosts(updatedPosts);
-    localStorage.setItem("adminPosts", JSON.stringify(updatedPosts));
+  // Save all data to backend
+  const saveAllData = () => {
+    const data = {
+      posts,
+      social,
+      dematLinks,
+      stockData
+    };
+
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).catch(err => console.error("Save failed:", err));
   };
 
   const handleSaveSocial = () => {
-    localStorage.setItem("socialLinks", JSON.stringify(social));
+    saveAllData();
     alert("Social media links saved!");
   };
 
   const handleSaveDematLinks = () => {
-    // Save the demat links for admin usage
-    localStorage.setItem("dematLinks", JSON.stringify(dematLinks));
+    // Save demat links
+    saveAllData();
 
-    // Also store formatted referral links for dashboard usage
+    // Also save referral links (for frontend use)
     const referralLinks = [
       dematLinks.zerodha ? { name: "Zerodha", link: dematLinks.zerodha } : null,
       dematLinks.upstox ? { name: "Upstox", link: dematLinks.upstox } : null,
-      dematLinks.angelone
-        ? { name: "AngelOne", link: dematLinks.angelone }
-        : null,
+      dematLinks.angelone ? { name: "AngelOne", link: dematLinks.angelone } : null,
       dematLinks.groww ? { name: "Groww", link: dematLinks.groww } : null,
     ].filter(Boolean);
 
-    localStorage.setItem("referralLinks", JSON.stringify(referralLinks));
+    fetch('/api/referrals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(referralLinks)
+    }).catch(() => {});
 
     alert("Demat account links saved!");
   };
 
   const saveStockData = (updatedData) => {
     setStockData(updatedData);
-    localStorage.setItem("stockMarketData", JSON.stringify(updatedData));
+    // Save to backend
+    const data = {
+      posts,
+      social,
+      dematLinks,
+      stockData: updatedData
+    };
+
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).catch(() => {});
   };
 
   const handleAddStockItem = () => {
@@ -139,12 +157,26 @@ export default function Admin() {
       updatedPosts = posts.map((post) =>
         post.id === editPostId ? { ...post, ...newPost } : post
       );
-      setEditPostId(null);
     } else {
       updatedPosts = [...posts, { id: Date.now(), ...newPost }];
     }
 
-    savePosts(updatedPosts);
+    setPosts(updatedPosts);
+
+    // Save all data
+    const data = {
+      posts: updatedPosts,
+      social,
+      dematLinks,
+      stockData
+    };
+
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).catch(() => {});
+
     setNewPost({
       title: "",
       description: "",
@@ -152,6 +184,7 @@ export default function Admin() {
       videoUrl: "",
       link: "",
     });
+    setEditPostId(null);
     alert(editPostId ? "Post updated!" : "Post added!");
   };
 
@@ -163,7 +196,21 @@ export default function Admin() {
   const handleDeletePost = (id) => {
     if (window.confirm("Are you sure you want to delete this post?")) {
       const updatedPosts = posts.filter((post) => post.id !== id);
-      savePosts(updatedPosts);
+      setPosts(updatedPosts);
+
+      const data = {
+        posts: updatedPosts,
+        social,
+        dematLinks,
+        stockData
+      };
+
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).catch(() => {});
+
       alert("Post deleted!");
     }
   };

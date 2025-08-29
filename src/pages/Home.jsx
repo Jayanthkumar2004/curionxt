@@ -8,8 +8,23 @@ export default function Home() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const storedPosts = JSON.parse(localStorage.getItem("adminPosts")) || [];
-    setPosts(storedPosts);
+    // Fetch posts from backend (shared with all users)
+    fetch('/api/posts')
+      .then(res => res.json())
+      .then(data => {
+        // Map database fields to match PostCard props
+        const formattedPosts = data.map(post => ({
+          title: post.title,
+          description: post.description,
+          img: post.imageUrl,
+          link: post.link
+        }));
+        setPosts(formattedPosts);
+      })
+      .catch(err => {
+        console.error("Failed to load shared posts:", err);
+        setPosts([]); // Fallback if API fails
+      });
   }, []);
 
   const handleStockClick = () => {
@@ -76,7 +91,7 @@ export default function Home() {
                   key={index}
                   title={post.title}
                   description={post.description}
-                  img={post.imageUrl}
+                  img={post.img}
                   link={post.link}
                 />
               ))
