@@ -8,32 +8,24 @@ export default function Home() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch shared data from backend
-    fetch('/api/data')
+    // Fetch posts from shared backend
+    fetch('/api/posts')
       .then(res => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
+        if (!res.ok) throw new Error('Network error');
         return res.json();
       })
       .then(data => {
-        console.log("Fetched data:", data);
-        // Ensure data.posts is an array before mapping
-        if (Array.isArray(data.posts)) {
-          const formattedPosts = data.posts.map(post => ({
-            title: post.title,
-            description: post.description,
-            img: post.imageUrl,
-            link: post.link
-          }));
-          setPosts(formattedPosts);
-        } else {
-          setPosts([]);
-        }
+        const formattedPosts = data.map(post => ({
+          title: post.title,
+          description: post.description,
+          img: post.imageUrl,
+          link: post.link
+        }));
+        setPosts(formattedPosts);
       })
       .catch(err => {
         console.error("Failed to load shared posts:", err);
-        setPosts([]); // Fallback if API fails
+        setPosts([]); // Fallback to empty
       });
   }, []);
 

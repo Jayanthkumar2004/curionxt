@@ -41,54 +41,43 @@ export default function Admin() {
   const ADMIN_USER = "admin";
   const ADMIN_PASS = "1234";
 
-  // Load saved data from backend (shared for all users)
+  // Load saved data from backend
   useEffect(() => {
-    fetch('/api/data')
+    fetch('/api/posts')
       .then(res => res.json())
       .then(data => {
-        if (data) {
-          setPosts(data.posts || []);
-          setSocial(data.social || { telegram: "", whatsapp: "", twitter: "" });
-          setDematLinks(data.dematLinks || { zerodha: "", upstox: "", angelone: "", groww: "" });
-          setStockData(data.stockData || { trending: [], gainers: [], losers: [], news: [] });
-        }
+        setPosts(data);
       })
       .catch(err => {
-        console.error("Failed to load shared data:", err);
-        // Fallback to empty
+        console.error("Failed to load posts:", err);
         setPosts([]);
-        setSocial({ telegram: "", whatsapp: "", twitter: "" });
-        setDematLinks({ zerodha: "", upstox: "", angelone: "", groww: "" });
-        setStockData({ trending: [], gainers: [], losers: [], news: [] });
       });
+
+    // Load other data
+    const savedLinks = JSON.parse(localStorage.getItem("socialLinks")) || { telegram: "", whatsapp: "", twitter: "" };
+    const savedDematLinks = JSON.parse(localStorage.getItem("dematLinks")) || { zerodha: "", upstox: "", angelone: "", groww: "" };
+    const savedStocks = JSON.parse(localStorage.getItem("stockMarketData")) || { trending: [], gainers: [], losers: [], news: [] };
+
+    setSocial(savedLinks);
+    setDematLinks(savedDematLinks);
+    setStockData(savedStocks);
   }, []);
 
-  // Save all data to backend
-  const saveAllData = () => {
-    const data = {
-      posts,
-      social,
-      dematLinks,
-      stockData
-    };
-
-    fetch('/api/data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    }).catch(err => console.error("Save failed:", err));
+  // Save posts to backend
+  const savePosts = (updatedPosts) => {
+    setPosts(updatedPosts);
+    // Also keep in localStorage for instant preview
+    localStorage.setItem("adminPosts", JSON.stringify(updatedPosts));
   };
 
   const handleSaveSocial = () => {
-    saveAllData();
+    localStorage.setItem("socialLinks", JSON.stringify(social));
     alert("Social media links saved!");
   };
 
   const handleSaveDematLinks = () => {
-    // Save demat links
-    saveAllData();
+    localStorage.setItem("dematLinks", JSON.stringify(dematLinks));
 
-    // Also save referral links (for frontend use)
     const referralLinks = [
       dematLinks.zerodha ? { name: "Zerodha", link: dematLinks.zerodha } : null,
       dematLinks.upstox ? { name: "Upstox", link: dematLinks.upstox } : null,
@@ -96,30 +85,13 @@ export default function Admin() {
       dematLinks.groww ? { name: "Groww", link: dematLinks.groww } : null,
     ].filter(Boolean);
 
-    fetch('/api/referrals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(referralLinks)
-    }).catch(() => {});
-
+    localStorage.setItem("referralLinks", JSON.stringify(referralLinks));
     alert("Demat account links saved!");
   };
 
   const saveStockData = (updatedData) => {
     setStockData(updatedData);
-    // Save to backend
-    const data = {
-      posts,
-      social,
-      dematLinks,
-      stockData: updatedData
-    };
-
-    fetch('/api/data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    }).catch(() => {});
+    localStorage.setItem("stockMarketData", JSON.stringify(updatedData));
   };
 
   const handleAddStockItem = () => {
@@ -157,26 +129,19 @@ export default function Admin() {
       updatedPosts = posts.map((post) =>
         post.id === editPostId ? { ...post, ...newPost } : post
       );
+      setEditPostId(null);
     } else {
       updatedPosts = [...posts, { id: Date.now(), ...newPost }];
     }
 
-    setPosts(updatedPosts);
-
-    // Save all data
-    const data = {
-      posts: updatedPosts,
-      social,
-      dematLinks,
-      stockData
-    };
-
-    fetch('/api/data', {
+    // Save to backend
+    fetch('/api/posts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    }).catch(() => {});
+      body: JSON.stringify(newPost)
+    }).catch(err => console.error("Save failed:", err));
 
+    savePosts(updatedPosts);
     setNewPost({
       title: "",
       description: "",
@@ -184,7 +149,6 @@ export default function Admin() {
       videoUrl: "",
       link: "",
     });
-    setEditPostId(null);
     alert(editPostId ? "Post updated!" : "Post added!");
   };
 
@@ -196,21 +160,7 @@ export default function Admin() {
   const handleDeletePost = (id) => {
     if (window.confirm("Are you sure you want to delete this post?")) {
       const updatedPosts = posts.filter((post) => post.id !== id);
-      setPosts(updatedPosts);
-
-      const data = {
-        posts: updatedPosts,
-        social,
-        dematLinks,
-        stockData
-      };
-
-      fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      }).catch(() => {});
-
+      savePosts(updatedPosts);
       alert("Post deleted!");
     }
   };
@@ -230,7 +180,6 @@ export default function Admin() {
     setPassword("");
   };
 
-  // Login screen
   if (!isLoggedIn) {
     return (
       <div className="admin-login">
@@ -258,7 +207,6 @@ export default function Admin() {
     );
   }
 
-  // Admin dashboard
   return (
     <div className="admin-container">
       <header className="header">
@@ -268,7 +216,6 @@ export default function Admin() {
         </button>
       </header>
 
-      {/* Add/Edit Post */}
       <div className="card">
         <h2>{editPostId ? "Edit Post" : "Add New Post"}</h2>
         <input
@@ -307,7 +254,6 @@ export default function Admin() {
         </button>
       </div>
 
-      {/* Posts List */}
       <div className="card">
         <h2>Existing Posts</h2>
         {posts.length === 0 ? (
@@ -338,7 +284,6 @@ export default function Admin() {
         )}
       </div>
 
-      {/* Stock Market Management */}
       <div className="card">
         <h2>Stock Market Data</h2>
         <div className="tabs">
@@ -386,7 +331,6 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* Social Links */}
       <div className="card">
         <h2>Social Media Links</h2>
         <input
@@ -412,7 +356,6 @@ export default function Admin() {
         </button>
       </div>
 
-      {/* Demat Account Links */}
       <div className="card">
         <h2>Demat Account Links</h2>
         <input
